@@ -8,6 +8,13 @@
       "when": 1793371089668,
       "tag": "0000_daily_wither",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793373499794,
+      "tag": "0001_lovely_lady_vermin",
+      "breakpoints": true
     }
   ]
 }

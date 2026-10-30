@@ -1,4 +1,7 @@
-import { pgTable, serial, varchar, text, timestamp, integer, decimal, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, serial, varchar, text, timestamp, integer, decimal, uniqueIndex, pgEnum } from "drizzle-orm/pg-core";
+
+export const USER_ROLES = ["user", "admin"] as const;
+export const userRoleEnum = pgEnum("user_role", USER_ROLES);
 
 // USER AUTH: akun untuk register dan login
 export const UserAuth = pgTable("users", {
@@ -6,6 +9,7 @@ export const UserAuth = pgTable("users", {
   username: varchar("username", { length: 50 }).notNull(),
   email: varchar("email", { length: 100 }).notNull().unique(),
   password: varchar("password", { length: 255 }).notNull(),
+  role: userRoleEnum("role").notNull().default("user"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true,}).defaultNow().notNull(),
 });
