@@ -28,3 +28,5 @@ export const loginSchema = z.object({
     .string()
     .min(1, "Password wajib diisi"),
 });
+
+
