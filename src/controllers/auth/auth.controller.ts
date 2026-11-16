@@ -1,12 +1,13 @@
-
 import { Request, Response } from "express";
-import { ZodError } from "zod";
+import { z, ZodError } from "zod";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { registerSchema, loginSchema } from "../../validations/auth.validation";
 import { UserAuth } from "../../config/schema";
 import { db } from "../../config/db";
+import { uploadToCloudinary, deleteFromCloudinary } from "../../service/cloudinary.service";
+
 
 // JWT SECRET
 const getJwtSecret = (): string => {
@@ -197,6 +198,203 @@ export class AuthController {
       });
     }
   };
+
+
+  // GET PROFILE
+  getProfile = async (_req: Request, res: Response) => {
+    try {
+      const userId = Number(res.locals.user?.id);
+
+      const [user] = await db
+        .select({
+          id: UserAuth.id,
+          username: UserAuth.username,
+          email: UserAuth.email,
+          role: UserAuth.role,
+          profileImage: UserAuth.profileImage,
+        })
+        .from(UserAuth)
+        .where(eq(UserAuth.id, userId))
+        .limit(1);
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User tidak ditemukan",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Profile berhasil diambil",
+        data: { user },
+      });
+    } catch (error) {
+      console.error("Get profile error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Gagal mengambil profile",
+      });
+    }
+  };
+
+  // UPDATE PROFILE
+  updateProfile = async (req: Request, res: Response) => {
+    try {
+      const userId = Number(res.locals.user?.id);
+
+      const validatedData = z.object({
+        username: z.string().trim().min(1, "Username wajib diisi").max(100),
+        email: z.string().trim().email("Format email tidak valid"),
+      }).parse(req.body);
+
+      const username = validatedData.username;
+      const email = validatedData.email.toLowerCase();
+
+      const [updatedUser] = await db
+        .update(UserAuth)
+        .set({
+          username,
+          email,
+          updatedAt: new Date(),
+        })
+        .where(eq(UserAuth.id, userId))
+        .returning({
+          id: UserAuth.id,
+          username: UserAuth.username,
+          email: UserAuth.email,
+          role: UserAuth.role,
+        });
+
+      if (!updatedUser) {
+        return res.status(404).json({
+          success: false,
+          message: "User tidak ditemukan",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Profile berhasil diperbarui",
+        data: { user: updatedUser },
+      });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({
+          success: false,
+          message: "Data profile tidak valid",
+          errors: error.issues,
+        });
+      }
+
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        error.code === "23505"
+      ) {
+        return res.status(409).json({
+          success: false,
+          message: "Username atau email sudah digunakan",
+        });
+      }
+
+      console.error("Update profile error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Gagal memperbarui profile",
+      });
+    }
+  };
+
+
+  // UPDATE PROFILE IMAGE
+  updateProfileImage = async (req: Request, res: Response) => {
+    try {
+      const userId = Number(res.locals.user?.id);
+
+      console.log("USER ID:", userId);
+      console.log("FILE:", req.file?.originalname);
+
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          message: "Foto profil wajib diunggah",
+        });
+      }
+
+      const [existingUser] = await db
+        .select()
+        .from(UserAuth)
+        .where(eq(UserAuth.id, userId))
+        .limit(1);
+
+      if (!existingUser) {
+        return res.status(404).json({
+          success: false,
+          message: "User tidak ditemukan",
+        });
+      }
+
+      // Upload ke Cloudinary
+      const uploadResult = await uploadToCloudinary(
+        req.file.buffer,
+        "arsora-profile"
+      );
+
+      console.log("CLOUDINARY RESULT:", uploadResult);
+
+      // Update database
+      const [updatedUser] = await db
+        .update(UserAuth)
+        .set({
+          profileImage: uploadResult.secure_url,
+          profileImagePublicId: uploadResult.public_id,
+          updatedAt: new Date(),
+        })
+        .where(eq(UserAuth.id, userId))
+        .returning({
+          id: UserAuth.id,
+          username: UserAuth.username,
+          email: UserAuth.email,
+          profileImage: UserAuth.profileImage,
+        });
+
+      console.log("UPDATED USER:", updatedUser);
+
+      if (!updatedUser) {
+        return res.status(404).json({
+          success: false,
+          message: "Gagal menyimpan foto profil ke database",
+        });
+      }
+
+      if (existingUser.profileImagePublicId) {
+        await deleteFromCloudinary(
+          existingUser.profileImagePublicId
+        );
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Foto profil berhasil diperbarui",
+        data: {
+          user: updatedUser,
+        },
+      });
+    } catch (error) {
+      console.error("Update profile image error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Gagal memperbarui foto profil",
+        error: error instanceof Error ? error.message : error,
+      });
+    }
+  };
+
 
   // LOGOUT
   logout = async (req: Request, res: Response) => {
