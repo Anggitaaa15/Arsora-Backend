@@ -7,3 +7,9 @@ export const createProductSchema = z.object({
   stock: z.coerce.number().int().min(0, "Stok tidak boleh negatif"),
   description: z.string().min(1, "Deskripsi wajib diisi"),
 });
+
+export const updateProductSchema = createProductSchema.partial();
+
+export const productIdSchema = z.object({
+  id: z.coerce.number().int().positive("ID produk tidak valid"),
+});
