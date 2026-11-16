@@ -96,6 +96,15 @@ Arsora Backend menggunakan PostgreSQL sebagai database dan Drizzle ORM untuk men
 
 File migrasi database disimpan di dalam folder `drizzle/`.
 
+## Mobile Repository
+
+Arsora Backend digunakan sebagai REST API untuk mendukung aplikasi mobile Arsora yang dikembangkan menggunakan Flutter.
+
+Repository aplikasi mobile dapat diakses melalui tautan berikut:
+
+- **Arsora Mobile:** [https://github.com/Anggitaaa15/Arsora-Mobile](https://github.com/Anggitaaa15/Arsora-Mobile)
+
+
 ## Pengembang
 
 **Arsora** – Backend Development
